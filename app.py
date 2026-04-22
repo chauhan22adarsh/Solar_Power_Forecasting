@@ -100,8 +100,8 @@ def load_and_process(gen_bytes, weather_bytes):
     gen     = pd.read_csv(io.BytesIO(gen_bytes))
     weather = pd.read_csv(io.BytesIO(weather_bytes))
 
-    gen['DATE_TIME']     = pd.to_datetime(gen['DATE_TIME'],     infer_datetime_format=True, dayfirst=True)
-    weather['DATE_TIME'] = pd.to_datetime(weather['DATE_TIME'], infer_datetime_format=True)
+    gen['DATE_TIME']     = pd.to_datetime(gen['DATE_TIME'], dayfirst=True)
+    weather['DATE_TIME'] = pd.to_datetime(weather['DATE_TIME'])
     gen     = gen.drop(columns=[c for c in ['PLANT_ID'] if c in gen.columns])
     weather = weather.drop(columns=[c for c in ['PLANT_ID', 'SOURCE_KEY'] if c in weather.columns])
     weather = weather.drop_duplicates(subset=['DATE_TIME'])
