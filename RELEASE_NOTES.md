@@ -143,6 +143,10 @@ matplotlib>=3.7.0
 seaborn>=0.12.0
 scikit-learn>=1.3.0
 statsmodels>=0.14.0
+joblib>=1.3.0
+jinja2>=3.1.6
+tensorflow>=2.20.0
+scipy>=1.10.0
 ```
 
 **Minimum Python:** 3.10 | **GPU required:** No | **SCADA required:** No
