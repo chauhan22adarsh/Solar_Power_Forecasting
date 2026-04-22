@@ -526,7 +526,7 @@ with tab3:
         # Build series
         if use_hourly:
             df_copy = df.copy()
-            df_copy['HOUR_DT'] = df_copy['DATE_TIME'].dt.floor('H')
+            df_copy['HOUR_DT'] = df_copy['DATE_TIME'].dt.floor('h')
             series = (df_copy.groupby('HOUR_DT')['AC_POWER']
                              .sum().sort_index().rename('AC_POWER'))
         else:
