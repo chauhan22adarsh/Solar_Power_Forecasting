@@ -17,12 +17,12 @@ https://solarpowerforecasting-7fmabm2xo5dkudkycnpdwu.streamlit.app/
 ## Files needed
 - app.py            ← main web app
 - requirements.txt  ← dependencies
-- data/Plant_<X>_Generation_Data.csv
-- data/Plant_<X>_Weather_Sensor_Data.csv
+- data/Plant_X_Generation_Data.csv
+- data/Plant_X_Weather_Sensor_Data.csv
 
 ## Usage
-1. Upload Plant_<X>_Generation_Data.csv
-2. Upload Plant_<X>_Weather_Sensor_Data.csv  
+1. Upload Plant_X_Generation_Data.csv
+2. Upload Plant_X_Weather_Sensor_Data.csv  
 3. Click "Run Full Analysis"
 4. Explore 4 tabs: EDA | ML Models | SARIMA | Comparison
 
