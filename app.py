@@ -15,6 +15,7 @@ import pandas as pd
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")   # ✅ REQUIRED for Streamlit
+from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
 import matplotlib.pyplot as plt
 import seaborn as sns
 import warnings, json
@@ -391,12 +392,34 @@ with tab2:
             yp_dt = dt.predict(X_te)
             results['Decision Tree'] = (yp_dt, compute_metrics(y_te, yp_dt))
 
-        with st.spinner(f"Training Random Forest ({rf_trees} trees)..."):
-            rf    = RandomForestRegressor(n_estimators=rf_trees, max_depth=rf_depth,
-                                          min_samples_split=5, max_features='sqrt',
-                                          n_jobs=-1, random_state=SEED).fit(X_tr, y_tr)
-            yp_rf = rf.predict(X_te)   # predict on held-out test set
-            results['Random Forest'] = (yp_rf, compute_metrics(y_te, yp_rf))
+        with st.spinner("Training Random Forest with GridSearchCV (this takes a few minutes)..."):
+                    param_grid = {
+                        'n_estimators'     : [100, 200],
+                        'max_depth'        : [10, 15, None],
+                        'min_samples_split': [5, 10],
+                        'max_features'     : ['sqrt', 'log2'],
+                    }
+                    tscv = TimeSeriesSplit(n_splits=5)
+                    rf_base = RandomForestRegressor(n_jobs=-1, random_state=SEED)
+                    gs = GridSearchCV(
+                        estimator = rf_base,
+                        param_grid = param_grid,
+                        cv         = tscv,
+                        scoring    = 'neg_root_mean_squared_error',
+                        n_jobs     = -1,
+                        verbose    = 0,
+                        refit      = True,
+                    )
+                    gs.fit(X_tr, y_tr)
+                    rf    = gs.best_estimator_
+                    yp_rf = rf.predict(X_te)   # predict on held-out test set
+                    results['Random Forest (GridSearchCV)'] = (yp_rf, compute_metrics(y_te, yp_rf))
+
+                    st.markdown(f"""
+                    <div class="callout callout-ok">
+                    ✅ <b>GridSearchCV best parameters:</b> <code>{gs.best_params_}</code><br>
+                    Best CV RMSE (TimeSeriesSplit-5): <code>{-gs.best_score_:.3f} kW</code>
+                    </div>""", unsafe_allow_html=True)
 
         # Metrics
         st.markdown("### 📋 Test Set Performance")
