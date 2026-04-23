@@ -100,8 +100,8 @@ def load_and_process(gen_bytes, weather_bytes):
     gen     = pd.read_csv(io.BytesIO(gen_bytes))
     weather = pd.read_csv(io.BytesIO(weather_bytes))
 
-    gen['DATE_TIME']     = pd.to_datetime(gen['DATE_TIME'],     infer_datetime_format=True, dayfirst=True)
-    weather['DATE_TIME'] = pd.to_datetime(weather['DATE_TIME'], infer_datetime_format=True)
+    gen['DATE_TIME']     = pd.to_datetime(gen['DATE_TIME'], dayfirst=True)
+    weather['DATE_TIME'] = pd.to_datetime(weather['DATE_TIME'])
     gen     = gen.drop(columns=[c for c in ['PLANT_ID'] if c in gen.columns])
     weather = weather.drop(columns=[c for c in ['PLANT_ID', 'SOURCE_KEY'] if c in weather.columns])
     weather = weather.drop_duplicates(subset=['DATE_TIME'])
@@ -526,7 +526,7 @@ with tab3:
         # Build series
         if use_hourly:
             df_copy = df.copy()
-            df_copy['HOUR_DT'] = df_copy['DATE_TIME'].dt.floor('H')
+            df_copy['HOUR_DT'] = df_copy['DATE_TIME'].dt.floor('h')
             series = (df_copy.groupby('HOUR_DT')['AC_POWER']
                              .sum().sort_index().rename('AC_POWER'))
         else:
