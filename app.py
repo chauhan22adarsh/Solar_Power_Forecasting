@@ -199,7 +199,7 @@ with st.sidebar:
     **Stack:** scikit-learn · statsmodels · Streamlit
     **Course:** CL653 — AI/ML for Chemical Eng.
     """)
-    run_button = st.button("🚀 Run Full Analysis", use_container_width=True, type='primary')
+    run_button = st.button("🚀 Run Full Analysis", width="stretch", type='primary')
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -275,7 +275,7 @@ with tab1:
                 ax=ax, cmap='coolwarm', center=0, annot=True, fmt='.2f',
                 linewidths=0.4, annot_kws={'size':9}, cbar_kws={'shrink':0.7})
     ax.tick_params(labelsize=9)
-    st.pyplot(fig, use_container_width=True); plt.close()
+    st.pyplot(fig, width="stretch"); plt.close()
 
     st.markdown("### 📉 Distributions (Daytime — AC_POWER > 0)")
     day_df = df[df['AC_POWER'] > 0]
@@ -289,7 +289,7 @@ with tab1:
         ax.axvline(v.mean(), color=C2, lw=1.5, ls='--', label=f'μ={v.mean():.2f}')
         ax.set_xlabel(xlabel); ax.legend(fontsize=8)
     plt.tight_layout()
-    st.pyplot(fig, use_container_width=True); plt.close()
+    st.pyplot(fig, width="stretch"); plt.close()
 
     st.markdown("### ⏰ Average AC Power by Hour")
     hourly = df.groupby('HOUR')['AC_POWER'].mean()
@@ -297,7 +297,7 @@ with tab1:
     ax.bar(hourly.index, hourly.values, color=C1, alpha=0.85, edgecolor='none')
     ax.set_xlabel('Hour of Day'); ax.set_ylabel('Avg AC Power (kW)')
     ax.set_title('Diurnal Generation Profile')
-    st.pyplot(fig, use_container_width=True); plt.close()
+    st.pyplot(fig, width="stretch"); plt.close()
 
     st.markdown("### 📆 Daily Totals — Best & Worst Day")
     daily = df.groupby('DATE_STR')['AC_POWER'].sum().sort_index()
@@ -314,7 +314,7 @@ with tab1:
     col_l,col_r = st.columns(2)
     col_l.success(f"🟢 Best: **{best_d}** — `{daily[best_d]:,.0f}` kW")
     col_r.error(  f"🔴 Worst: **{worst_d}** — `{daily[worst_d]:,.0f}` kW")
-    st.pyplot(fig, use_container_width=True); plt.close()
+    st.pyplot(fig, width="stretch"); plt.close()
 
     st.markdown("### ⚡ Fault Severity — Coefficient of Variation")
     agg    = df.groupby(['DATE_STR','HOUR'])['DC_POWER'].sum().reset_index()
@@ -327,7 +327,7 @@ with tab1:
     cov_df = (cov_df.sort_values('CoV',ascending=False)
                     .reset_index()[['DATE_STR','CoV','Severity']])
     cov_df.columns = ['Date','CoV','Severity']
-    st.dataframe(cov_df, use_container_width=True, height=300)
+    st.dataframe(cov_df, width="stretch", height=300)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -460,7 +460,7 @@ with tab2:
         ax.set_title('Forecast vs Actual — Test Period')
         ax.legend(fontsize=9)
         plt.tight_layout()
-        st.pyplot(fig, use_container_width=True); plt.close()
+        st.pyplot(fig, width="stretch"); plt.close()
 
         # Feature importance
         st.markdown("### 🔍 Random Forest — Feature Importance (Gini)")
@@ -472,7 +472,7 @@ with tab2:
                 color=fi_colors, edgecolor='none')
         ax.set_title('Top-15 Feature Importances')
         ax.set_xlabel('Gini Importance')
-        st.pyplot(fig, use_container_width=True); plt.close()
+        st.pyplot(fig, width="stretch"); plt.close()
 
         # Scatter + residual for RF
         st.markdown("### 🎯 Random Forest — Scatter & Residual")
@@ -495,7 +495,7 @@ with tab2:
         ax.set_xlabel('Predicted (kW)'); ax.set_ylabel('Residual')
         ax.set_title('Residual Plot')
         plt.tight_layout()
-        st.pyplot(fig, use_container_width=True); plt.close()
+        st.pyplot(fig, width="stretch"); plt.close()
 
         # Cross-check table
         st.markdown("### 📄 Prediction Cross-Check (first 20 test rows)")
@@ -506,7 +506,7 @@ with tab2:
             'RF Pred': yp_rf[:20].round(2),
         })
         cc['RF |Error|'] = (cc['Actual']-cc['RF Pred']).abs().round(2)
-        st.dataframe(cc, use_container_width=True)
+        st.dataframe(cc, width="stretch")
         st.markdown(
             f"RF within ±5 kW: **{(np.abs(y_te-yp_rf)<=5).mean()*100:.1f}%** &nbsp;|&nbsp; "
             f"within ±20 kW: **{(np.abs(y_te-yp_rf)<=20).mean()*100:.1f}%**"
@@ -613,7 +613,7 @@ with tab3:
         ax.set_ylabel(y_unit)
         ax.set_title(f'{sarima_label} — Data Split')
         ax.legend(fontsize=9)
-        st.pyplot(fig, use_container_width=True); plt.close()
+        st.pyplot(fig, width="stretch"); plt.close()
 
         with st.spinner(f"Fitting {sarima_label} + weather exog, then running "
                          f"walk-forward forecast (this can take a moment)..."):
@@ -691,7 +691,7 @@ with tab3:
                 ax.set_ylabel(y_unit)
                 ax.set_title(f'{sarima_label} + lag-1 exog — Walk-Forward Forecast')
                 ax.legend(fontsize=9)
-                st.pyplot(fig, use_container_width=True); plt.close()
+                st.pyplot(fig, width="stretch"); plt.close()
 
                 # Diagnostics
                 if use_hourly:
@@ -738,7 +738,7 @@ with tab3:
                         ax.set_title('Correlogram (ACF)')
 
                         plt.tight_layout()
-                        st.pyplot(fig, use_container_width=True)
+                        st.pyplot(fig, width="stretch")
                         plt.close()
                     except Exception as diag_e:
                         st.warning(f"Diagnostics plot error: {diag_e}")
@@ -780,7 +780,7 @@ with tab3:
                                 color='#c9d1d9', fontweight='bold')
 
                     plt.tight_layout()
-                    st.pyplot(fig, use_container_width=True)
+                    st.pyplot(fig, width="stretch")
                     plt.close()
 
                 # Model summary
@@ -845,7 +845,7 @@ with tab4:
                 ax.text(bar.get_x()+bar.get_width()/2, v+max(vals)*0.01,
                         f'{v:.2f}', ha='center', fontsize=8, color='#c9d1d9')
         plt.tight_layout()
-        st.pyplot(fig, use_container_width=True); plt.close()
+        st.pyplot(fig, width="stretch"); plt.close()
 
         # Full metrics table
         st.markdown("### 📋 All Model Metrics")
@@ -854,7 +854,7 @@ with tab4:
             all_m[st.session_state.get('sarima_label','SARIMA')] = \
                 st.session_state['sarima_metrics']
         df_m = pd.DataFrame(all_m).T.round(3)
-        st.dataframe(df_m, use_container_width=True)
+        st.dataframe(df_m, width="stretch")
 
         report = {
             'generated_at': str(pd.Timestamp.now()),
