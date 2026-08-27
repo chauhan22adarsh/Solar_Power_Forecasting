@@ -1,0 +1,52 @@
+{
+  "generated_at": "2026-08-28T02:34:02.372018",
+  "dataset": {
+    "clean_rows": 68752,
+    "features": 32,
+    "date_range": [
+      "2020-05-15 00:00:00",
+      "2020-06-17 23:30:00"
+    ],
+    "inverters": 22
+  },
+  "best_rf_params": {
+    "max_depth": null,
+    "max_features": "sqrt",
+    "min_samples_split": 5,
+    "n_estimators": 200
+  },
+  "best_rf_cv_rmse": 39.86466590202862,
+  "models": {
+    "Linear Regression": {
+      "MAE": 63.9405,
+      "RMSE": 113.4001,
+      "R2": 91.7614,
+      "MAPE": 34.2446
+    },
+    "Decision Tree": {
+      "MAE": 21.3037,
+      "RMSE": 61.281,
+      "R2": 97.5941,
+      "MAPE": 6.1454
+    },
+    "Random Forest (GridSearchCV)": {
+      "MAE": 13.1365,
+      "RMSE": 40.5577,
+      "R2": 98.9462,
+      "MAPE": 3.9581
+    },
+    "SARIMA (daily scale)": {
+      "MAE": 50.9901,
+      "RMSE": 90.3644,
+      "R2": 93.3524,
+      "MAPE": 31.3829
+    },
+    "LSTM": {
+      "MAE": 28.9763,
+      "RMSE": 62.0451,
+      "R2": 97.5344,
+      "MAPE": 16.3621
+    }
+  },
+  "winner_ml_lstm": "Random Forest (GridSearchCV)"
+}
