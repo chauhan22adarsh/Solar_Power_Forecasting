@@ -5,8 +5,8 @@ Author: Adarsh Chauhan | Roll: 230107008 | CL653
 
 Model strategy (consistent with notebook and report):
   - ML models (LR, DT, RF): 15-min per-inverter data
-    RF is tuned with RandomizedSearchCV (fast, UI-friendly — replaces full
-    GridSearchCV, which is accurate but too slow for an interactive app).
+    RF uses fixed hyperparameters (sidebar sliders) — RandomizedSearchCV was
+    tried but re-tuning on every app run was too slow for live deployment.
   - SARIMA: user chooses hourly (s=24, ~816 pts, full diagnostics)
             or daily (s=7, 34 pts, residual plot only)
     Both use per-inverter-AVERAGED AC_POWER (same scale as ML models),
@@ -27,7 +27,6 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LinearRegression
 from sklearn.tree import DecisionTreeRegressor
-from sklearn.model_selection import RandomizedSearchCV, TimeSeriesSplit
 from sklearn.metrics import (mean_absolute_error, mean_squared_error,
                               r2_score, mean_absolute_percentage_error)
 from statsmodels.tsa.statespace.sarimax import SARIMAX
@@ -170,10 +169,8 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("### ⚙️ ML Settings")
-    st.caption("Random Forest is auto-tuned via **RandomizedSearchCV** "
-               "(fast — a handful of random configs, not an exhaustive grid).")
-    rf_n_iter = st.slider("RF — RandomizedSearchCV iterations", 5, 30, 12, 1)
-    rf_cv_splits = st.slider("RF — Time-series CV splits", 2, 5, 3, 1)
+    rf_trees = st.slider("RF — Number of Trees", 50, 300, 150, 50)
+    rf_depth = st.selectbox("RF — Max Depth", [10, 15, 20, None], index=1)
 
     st.markdown("---")
     st.markdown("### 📈 SARIMA Settings")
@@ -194,12 +191,12 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### ℹ️ About")
     st.markdown("""
-    **ML:** LR · Decision Tree · Random Forest (RandomizedSearchCV-tuned)
+    **ML:** LR · Decision Tree · Random Forest
     **Time-Series:** SARIMA/ARIMA (+ lag-1 weather, walk-forward)
     **Stack:** scikit-learn · statsmodels · Streamlit
     **Course:** CL653 — AI/ML for Chemical Eng.
     """)
-    run_button = st.button("🚀 Run Full Analysis", width="stretch", type='primary')
+    run_button = st.button("🚀 Run Full Analysis", use_container_width=True, type='primary')
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -275,7 +272,7 @@ with tab1:
                 ax=ax, cmap='coolwarm', center=0, annot=True, fmt='.2f',
                 linewidths=0.4, annot_kws={'size':9}, cbar_kws={'shrink':0.7})
     ax.tick_params(labelsize=9)
-    st.pyplot(fig, width="stretch"); plt.close()
+    st.pyplot(fig, use_container_width=True); plt.close()
 
     st.markdown("### 📉 Distributions (Daytime — AC_POWER > 0)")
     day_df = df[df['AC_POWER'] > 0]
@@ -289,7 +286,7 @@ with tab1:
         ax.axvline(v.mean(), color=C2, lw=1.5, ls='--', label=f'μ={v.mean():.2f}')
         ax.set_xlabel(xlabel); ax.legend(fontsize=8)
     plt.tight_layout()
-    st.pyplot(fig, width="stretch"); plt.close()
+    st.pyplot(fig, use_container_width=True); plt.close()
 
     st.markdown("### ⏰ Average AC Power by Hour")
     hourly = df.groupby('HOUR')['AC_POWER'].mean()
@@ -297,7 +294,7 @@ with tab1:
     ax.bar(hourly.index, hourly.values, color=C1, alpha=0.85, edgecolor='none')
     ax.set_xlabel('Hour of Day'); ax.set_ylabel('Avg AC Power (kW)')
     ax.set_title('Diurnal Generation Profile')
-    st.pyplot(fig, width="stretch"); plt.close()
+    st.pyplot(fig, use_container_width=True); plt.close()
 
     st.markdown("### 📆 Daily Totals — Best & Worst Day")
     daily = df.groupby('DATE_STR')['AC_POWER'].sum().sort_index()
@@ -314,7 +311,7 @@ with tab1:
     col_l,col_r = st.columns(2)
     col_l.success(f"🟢 Best: **{best_d}** — `{daily[best_d]:,.0f}` kW")
     col_r.error(  f"🔴 Worst: **{worst_d}** — `{daily[worst_d]:,.0f}` kW")
-    st.pyplot(fig, width="stretch"); plt.close()
+    st.pyplot(fig, use_container_width=True); plt.close()
 
     st.markdown("### ⚡ Fault Severity — Coefficient of Variation")
     agg    = df.groupby(['DATE_STR','HOUR'])['DC_POWER'].sum().reset_index()
@@ -327,7 +324,7 @@ with tab1:
     cov_df = (cov_df.sort_values('CoV',ascending=False)
                     .reset_index()[['DATE_STR','CoV','Severity']])
     cov_df.columns = ['Date','CoV','Severity']
-    st.dataframe(cov_df, width="stretch", height=300)
+    st.dataframe(cov_df, use_container_width=True, height=300)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -386,43 +383,16 @@ with tab2:
             yp_dt = dt.predict(X_te)
             results['Decision Tree'] = (yp_dt, compute_metrics(y_te, yp_dt))
 
-        # ── Random Forest — tuned via RandomizedSearchCV ──────────────────────
-        # Faster than exhaustive GridSearchCV: samples `rf_n_iter` random
-        # configs instead of every combination, with time-aware CV so no
-        # future rows leak into a training fold.
-        with st.spinner(f"Tuning Random Forest via RandomizedSearchCV "
-                         f"({rf_n_iter} iters × {rf_cv_splits}-fold TS-CV)..."):
-            param_dist = {
-                'n_estimators'     : [50, 100, 150, 200, 250],
-                'max_depth'        : [8, 10, 15, 20, None],
-                'min_samples_split': [2, 5, 10, 15],
-                'min_samples_leaf' : [1, 2, 4],
-                'max_features'     : ['sqrt', 'log2', None],
-            }
-            tscv = TimeSeriesSplit(n_splits=rf_cv_splits)
-            rf_base = RandomForestRegressor(n_jobs=-1, random_state=SEED)
-
-            rf_search = RandomizedSearchCV(
-                estimator           = rf_base,
-                param_distributions = param_dist,
-                n_iter              = rf_n_iter,
-                cv                  = tscv,
-                scoring             = 'neg_root_mean_squared_error',
-                n_jobs              = -1,
-                random_state        = SEED,
-                refit               = True,
-            )
-            rf_search.fit(X_tr, y_tr)
-            rf    = rf_search.best_estimator_
+        # ── Random Forest — plain, fast fit (no hyperparameter search) ────────
+        # RandomizedSearchCV was tried but adds noticeable latency on every
+        # single run of a live deployed app, so RF here uses fixed
+        # hyperparameters set via the sidebar sliders instead.
+        with st.spinner(f"Training Random Forest ({rf_trees} trees)..."):
+            rf    = RandomForestRegressor(n_estimators=rf_trees, max_depth=rf_depth,
+                                          min_samples_split=5, max_features='sqrt',
+                                          n_jobs=-1, random_state=SEED).fit(X_tr, y_tr)
             yp_rf = rf.predict(X_te)
             results['Random Forest'] = (yp_rf, compute_metrics(y_te, yp_rf))
-
-        st.markdown(
-            f'<div class="callout callout-ok">🎯 <b>Best RF params (RandomizedSearchCV):</b> '
-            f'{rf_search.best_params_} &nbsp;·&nbsp; Best CV RMSE: '
-            f'{-rf_search.best_score_:.3f}</div>',
-            unsafe_allow_html=True
-        )
 
         # Metrics
         st.markdown("### 📋 Test Set Performance")
@@ -452,7 +422,7 @@ with tab2:
         ax.plot(range(n_show), yp_dt[:n_show], color=C3, lw=1.2, ls='--',
                 alpha=0.85, label='Decision Tree')
         ax.plot(range(n_show), yp_rf[:n_show], color=C2, lw=1.4, ls='-',
-                alpha=0.9,  label='Random Forest (RandomizedSearchCV)')
+                alpha=0.9,  label='Random Forest')
         ax.fill_between(range(n_show), y_te[:n_show], yp_rf[:n_show],
                         alpha=0.08, color=C2)
         ax.set_xlabel(f'Test time steps (15-min intervals, first {n_show} of {len(y_te)} shown)')
@@ -460,7 +430,7 @@ with tab2:
         ax.set_title('Forecast vs Actual — Test Period')
         ax.legend(fontsize=9)
         plt.tight_layout()
-        st.pyplot(fig, width="stretch"); plt.close()
+        st.pyplot(fig, use_container_width=True); plt.close()
 
         # Feature importance
         st.markdown("### 🔍 Random Forest — Feature Importance (Gini)")
@@ -472,7 +442,7 @@ with tab2:
                 color=fi_colors, edgecolor='none')
         ax.set_title('Top-15 Feature Importances')
         ax.set_xlabel('Gini Importance')
-        st.pyplot(fig, width="stretch"); plt.close()
+        st.pyplot(fig, use_container_width=True); plt.close()
 
         # Scatter + residual for RF
         st.markdown("### 🎯 Random Forest — Scatter & Residual")
@@ -495,7 +465,7 @@ with tab2:
         ax.set_xlabel('Predicted (kW)'); ax.set_ylabel('Residual')
         ax.set_title('Residual Plot')
         plt.tight_layout()
-        st.pyplot(fig, width="stretch"); plt.close()
+        st.pyplot(fig, use_container_width=True); plt.close()
 
         # Cross-check table
         st.markdown("### 📄 Prediction Cross-Check (first 20 test rows)")
@@ -506,15 +476,14 @@ with tab2:
             'RF Pred': yp_rf[:20].round(2),
         })
         cc['RF |Error|'] = (cc['Actual']-cc['RF Pred']).abs().round(2)
-        st.dataframe(cc, width="stretch")
+        st.dataframe(cc, use_container_width=True)
         st.markdown(
             f"RF within ±5 kW: **{(np.abs(y_te-yp_rf)<=5).mean()*100:.1f}%** &nbsp;|&nbsp; "
             f"within ±20 kW: **{(np.abs(y_te-yp_rf)<=20).mean()*100:.1f}%**"
         )
 
-        st.session_state['ml_results']    = {k:v[1] for k,v in results.items()}
-        st.session_state['best_ml']       = best_ml
-        st.session_state['rf_best_params']= rf_search.best_params_
+        st.session_state['ml_results'] = {k:v[1] for k,v in results.items()}
+        st.session_state['best_ml']    = best_ml
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -613,7 +582,7 @@ with tab3:
         ax.set_ylabel(y_unit)
         ax.set_title(f'{sarima_label} — Data Split')
         ax.legend(fontsize=9)
-        st.pyplot(fig, width="stretch"); plt.close()
+        st.pyplot(fig, use_container_width=True); plt.close()
 
         with st.spinner(f"Fitting {sarima_label} + weather exog, then running "
                          f"walk-forward forecast (this can take a moment)..."):
@@ -691,7 +660,7 @@ with tab3:
                 ax.set_ylabel(y_unit)
                 ax.set_title(f'{sarima_label} + lag-1 exog — Walk-Forward Forecast')
                 ax.legend(fontsize=9)
-                st.pyplot(fig, width="stretch"); plt.close()
+                st.pyplot(fig, use_container_width=True); plt.close()
 
                 # Diagnostics
                 if use_hourly:
@@ -738,7 +707,7 @@ with tab3:
                         ax.set_title('Correlogram (ACF)')
 
                         plt.tight_layout()
-                        st.pyplot(fig, width="stretch")
+                        st.pyplot(fig, use_container_width=True)
                         plt.close()
                     except Exception as diag_e:
                         st.warning(f"Diagnostics plot error: {diag_e}")
@@ -780,7 +749,7 @@ with tab3:
                                 color='#c9d1d9', fontweight='bold')
 
                     plt.tight_layout()
-                    st.pyplot(fig, width="stretch")
+                    st.pyplot(fig, use_container_width=True)
                     plt.close()
 
                 # Model summary
@@ -810,9 +779,6 @@ with tab4:
                          min(ml_results, key=lambda k: ml_results[k]['RMSE']))
 
         st.success(f"🏆 Best ML model on 15-min inverter data (RMSE): **{best_ml}**")
-        if 'rf_best_params' in st.session_state:
-            st.caption(f"RF tuned via RandomizedSearchCV — best params: "
-                       f"{st.session_state['rf_best_params']}")
 
         if 'sarima_metrics' in st.session_state:
             sl = st.session_state.get('sarima_label','SARIMA')
@@ -845,7 +811,7 @@ with tab4:
                 ax.text(bar.get_x()+bar.get_width()/2, v+max(vals)*0.01,
                         f'{v:.2f}', ha='center', fontsize=8, color='#c9d1d9')
         plt.tight_layout()
-        st.pyplot(fig, width="stretch"); plt.close()
+        st.pyplot(fig, use_container_width=True); plt.close()
 
         # Full metrics table
         st.markdown("### 📋 All Model Metrics")
@@ -854,18 +820,17 @@ with tab4:
             all_m[st.session_state.get('sarima_label','SARIMA')] = \
                 st.session_state['sarima_metrics']
         df_m = pd.DataFrame(all_m).T.round(3)
-        st.dataframe(df_m, width="stretch")
+        st.dataframe(df_m, use_container_width=True)
 
         report = {
             'generated_at': str(pd.Timestamp.now()),
             'notes': {
                 'ml_scale'        : '15-minute per-inverter rows; temporal 80/20 split; '
-                                     'RF tuned via RandomizedSearchCV',
+                                     'RF uses fixed hyperparameters (sidebar sliders)',
                 'sarima_scale'    : 'Hourly or daily per-inverter-AVERAGED plant series '
                                      '(same units as ML) + lag-1 weather exog + walk-forward eval',
                 'features_excluded': 'DC_POWER, DC_AC_RATIO, EFFICIENCY, DAILY_YIELD',
             },
-            'rf_best_params': st.session_state.get('rf_best_params'),
             'models': all_m,
             'best_ml_model': best_ml,
         }
